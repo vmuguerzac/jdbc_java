@@ -11,6 +11,30 @@ public class App {
     private static String url = "jdbc:hsqldb:file:data/pageturner;shutdown=true";
     //private static String url = "jdbc:mysql://localhost:3306/pageturner";
     public static void main(String[] args) throws Exception {
+        // Prueba conexion y creacion de tabla Libro
+        probarConexion();
+        Libro libro = obtenerInformacionLibro();
+        // Patron CRUD - Create (Insert), Read, Update y Delete
+        boolean resultado = insertarLibro(libro);
+        if(resultado){
+            System.out.println("Se ha insertado los datos con exito");
+        }else{
+            System.out.println("No se ha insertado la informacion");
+        }
+    }
+    
+    public static Libro obtenerInformacionLibro(){
+        // INSERTAR
+        // Crear nuestro objeto
+        Libro libro = new Libro();
+        libro.setIsbn("9786124262784");
+        libro.setTitulo("Cien años de soledad");
+        libro.setAutor("Gabriel Garcia Marquez");
+        libro.setPrecio(150.00);
+        libro.setStock(10);
+        return libro;
+    }
+    public static void probarConexion(){
         // Conexion
         try(Connection c = DriverManager.getConnection(url, "SA", "")){
             // Obtener metadatos del gestor de base de datos
@@ -27,24 +51,16 @@ public class App {
                         stock INT
                     )
                     """;
-            st.execute(query);
-            System.out.println("Tabla de Libros creada");
+            boolean resultado = st.execute(query);
+            if(resultado == true){
+                System.out.println("Tabla de Libros creada");    
+            }else{
+                System.out.println("Tabla de Libros no creada");
+            }
         }catch(SQLException ex){
-            System.err.println("Error: " + ex.getMessage());
-        }
-        // INSERTAR
-        // Crear nuestro objeto
-        Libro libro = new Libro();
-        libro.setIsbn("9786124262784");
-        libro.setTitulo("Cien años de soledad");
-        libro.setAutor("Gabriel Garcia Marquez");
-        libro.setPrecio(150.00);
-        libro.setStock(10);
-        boolean resultado = insertarLibro(libro);
-        if(resultado){
-            System.out.println("Se ha insertado los datos con exito");
-        }else{
-            System.out.println("No se ha insertado la informacion");
+            System.err.println("Error SQL: " + ex.getMessage());
+        }catch(Exception ex){
+            System.err.println("Error General: " + ex.getMessage());
         }
     }
 
@@ -67,6 +83,6 @@ public class App {
         } catch (SQLException ex) {
             System.err.println("Error: " + ex.getMessage());
         }
-        return filasAfectadas==1?true:false;
+        return filasAfectadas==1?true:false; // if inline
     }
 }
