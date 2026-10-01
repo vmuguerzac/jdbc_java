@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 import com.vmuguerza.modelos.Libro;
@@ -17,15 +18,16 @@ public class App {
     public static void main(String[] args) throws Exception {
         // Prueba conexion y creacion de tabla Libro
         probarConexion();
-        //Libro libro = obtenerInformacionLibro(); // Obtener info del libro por parte cliente
+        
+        Libro libro = obtenerInformacionLibro(); // Obtener info del libro por parte cliente
         // Patron CRUD - Create (Insert), Read, Update y Delete
         // Insert
-        //boolean resultado = insertarLibro(libro);
-        //if(resultado){
-        //    System.out.println("Se ha insertado los datos con exito");
-        //}else{
-        //    System.out.println("No se ha insertado la informacion");
-        //}
+        boolean resultado = insertarLibro(libro);
+        if(resultado){
+            System.out.println("Se ha insertado los datos con exito");
+        }else{
+            System.out.println("No se ha insertado la informacion");
+        }
         // Read
         System.out.println("\n======= Obtener todos los Libros ======= ");
         List<Libro> libros = obtenerTodosLibros();
@@ -35,11 +37,38 @@ public class App {
                                 " Precio: " + l.getPrecio())
         );
         System.out.println("\n======= Buscar por ISBN ======= ");
-        String isbn = "9786124262781";
-        Libro libroBuscado = buscarLibroPorISBN(isbn);
-        System.out.println("ISBN: " + libroBuscado.getIsbn() + 
-                            " Autor: " + libroBuscado.getAutor() + 
-                            " Precio: " + libroBuscado.getPrecio());
+        String isbn = "9786124262784";
+        Optional<Libro> libroBuscado = buscarLibroPorISBN(isbn);
+        if(libroBuscado.isEmpty()){
+            System.out.println("No existe el libro para el ISBN buscado");
+        }else{
+            System.out.println("ISBN: " + libroBuscado.get().getIsbn() + 
+                            " Autor: " + libroBuscado.get().getAutor() + 
+                            " Precio: " + libroBuscado.get().getPrecio());
+        }
+        System.out.println("\n======= Actualizar ======= ");
+        libroBuscado.get().setPrecio(200.00); // actualizar el precio
+        resultado = actualizarLibro(libroBuscado.get()); // ejecutar la act contra la BD
+        libros = obtenerTodosLibros();
+        libros.forEach(l-> 
+            System.out.println("ISBN: " + l.getIsbn() + 
+                                " Autor: " + l.getAutor() + 
+                                " Precio: " + l.getPrecio())
+        );
+        System.out.println("\n======= Eliminar ======= ");
+        isbn = "9786124262784";
+        resultado = eliminarLibro(isbn);
+        if(resultado){
+            System.out.println("Libro eliminado con exito");
+        }else{
+            System.out.println("Libro no eliminado");
+        }
+        libros = obtenerTodosLibros();
+        libros.forEach(l-> 
+            System.out.println("ISBN: " + l.getIsbn() + 
+                                " Autor: " + l.getAutor() + 
+                                " Precio: " + l.getPrecio())
+        );
     }
     
     public static Libro obtenerInformacionLibro(){
@@ -154,8 +183,8 @@ public class App {
         return resultado;
     }
 
-    public static Libro buscarLibroPorISBN(String isbn){
-        Libro resultado = new Libro();
+    public static Optional<Libro> buscarLibroPorISBN(String isbn){
+        Libro resultado;
         String query = """
                 SELECT isbn, titulo, autor, precio, stock 
                 FROM Libros
@@ -166,11 +195,13 @@ public class App {
             ps.setString(1, isbn);
             ResultSet rs = ps.executeQuery();
             if(rs.next()){
+                resultado = new Libro();
                 resultado.setIsbn(rs.getString("isbn"));
                 resultado.setTitulo(rs.getString("titulo"));
                 resultado.setAutor(rs.getString("autor"));
                 resultado.setPrecio(rs.getDouble("precio"));
                 resultado.setStock(rs.getInt("stock"));
+                return Optional.of(resultado);
             }
         }catch(SQLException ex){
             System.err.println("Error de SQL: " + ex.getMessage());
@@ -179,8 +210,48 @@ public class App {
         }catch(Exception ex){
             System.err.println("Error: " + ex.getMessage());
         }
-        return resultado != null?resultado: null;
+        return Optional.empty();
     }
 
+    public static boolean actualizarLibro(Libro libro){
+        int filasAfectadas = 0;
+        String query = """
+                UPDATE Libros 
+                SET titulo = ?, autor = ?, precio = ?, stock = ?
+                WHERE isbn = ?
+                """;
+        try (Connection c = DriverManager.getConnection(url, "SA", "")) {
+            PreparedStatement ps = c.prepareStatement(query);
+            ps.setString(1, libro.getTitulo());
+            ps.setString(2, libro.getAutor());
+            ps.setDouble(3, libro.getPrecio());
+            ps.setInt(4, libro.getStock());
+            ps.setString(5, libro.getIsbn());
+            // Ejecutar nuestro query
+            filasAfectadas = ps.executeUpdate();
+            System.out.println(filasAfectadas + " - Filas afectadas"); 
+        } catch (SQLException ex) {
+            System.err.println("Error: " + ex.getMessage());
+        }
+        return filasAfectadas==1?true:false; // if inline
+    }
 
+    public static boolean eliminarLibro(String isbn){
+        int filasAfectadas = 0;
+        String query = """
+                DELETE FROM Libros WHERE isbn = ?
+            """;
+        try(Connection c = DriverManager.getConnection(url, "SA", "")){
+            PreparedStatement ps = c.prepareStatement(query);
+            ps.setString(1, isbn);
+            filasAfectadas = ps.executeUpdate();
+        }catch(SQLException ex){
+            System.err.println("Error de SQL: " + ex.getMessage());
+        }catch(IllegalArgumentException ex){
+            System.err.println("Error en Argumento: " + ex.getMessage());
+        }catch(Exception ex){
+            System.err.println("Error: " + ex.getMessage());
+        }
+        return filasAfectadas==1?true:false;
+    }    
 }
